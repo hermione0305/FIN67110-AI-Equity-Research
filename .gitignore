@@ -1,0 +1,10 @@
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+secrets.json
+__pycache__/
+.venv/
+.DS_Store
+.ipynb_checkpoints/
