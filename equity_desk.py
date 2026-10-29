@@ -1,4 +1,4 @@
-"""SEC data collection and arithmetic for an equity-research desk (no model calls)."""
+"""Seven SEC data steps followed by four isolated equity-research model roles."""
 from __future__ import annotations
 
 import argparse
@@ -508,11 +508,17 @@ def main():
     parser.add_argument('--peers', nargs='+', default=[], help='Space- or comma-separated tickers')
     parser.add_argument('--price', type=float, help='USD price per share for fiscal-year P/E')
     parser.add_argument('--step', type=int, choices=range(1, 8), help='Print/run only this step; fetch its prerequisites quietly')
+    parser.add_argument('--data-only', action='store_true', help='Run the seven data steps without model calls')
+    parser.add_argument('--model', default='gpt-5.4', help='OpenAI model for each isolated role (default: gpt-5.4)')
     args = parser.parse_args()
     args.peers = list(dict.fromkeys(t.upper() for item in args.peers for t in item.split(',') if t))
     if args.price is not None and (not math.isfinite(args.price) or args.price <= 0):
         parser.error('--price must be a finite positive number in USD')
     config = dotenv_values(ROOT / '.env')
+    use_roles = args.step is None and not args.data_only
+    api_key = (config.get('API_KEY') or '').strip() if use_roles else None
+    if use_roles and (not api_key or api_key == 'paste-here'):
+        parser.error('Set API_KEY in .env for model roles, or use --data-only for SEC data only.')
     user_agent = (config.get('SEC_USER_AGENT') or '').strip()
     if not user_agent or 'your-email@' in user_agent.lower() or not re.search(r'\S+@\S+\.\S+', user_agent):
         parser.error('Set SEC_USER_AGENT in .env to your name and real contact email.')
@@ -525,6 +531,15 @@ def main():
         except (ValueError, KeyError, RuntimeError, requests.RequestException) as exc:
             failures.append(step)
             print(f'Step {step} failed: {exc}', file=sys.stderr)
+    if use_roles and not failures:
+        try:
+            from research_roles import run_roles
+            run_roles(desk, api_key, args.model)
+        except (ValueError, KeyError, RuntimeError, OSError, ImportError) as exc:
+            failures.append('roles')
+            print(f'Research roles failed: {exc}', file=sys.stderr)
+    elif use_roles:
+        print('Research roles skipped because a required data step failed.', file=sys.stderr)
     if desk._folder:
         print(f'\nSaved data: {desk._folder}')
     return 1 if failures else 0
