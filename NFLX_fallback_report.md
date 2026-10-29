@@ -1,8 +1,8 @@
 Company: Netflix, Inc. (NFLX); filings read: FY2025 10-K 0001065280-26-000034; Q3 2026 earnings release, Exhibit 99.1 to 8-K 0001065280-26-000290; peer company-facts extracts: DIS 0001744489-25-000155 and CMCSA 0001628280-26-004994.
 fallback
 
-Partner check 1 — claim: [partner fills]; filing evidence/location: [partner fills]; mark: [partner fills]; reviewer/date: [partner fills].
-Partner check 2 — claim: [partner fills]; filing evidence/location: [partner fills]; mark: [partner fills]; reviewer/date: [partner fills].
+Partner check 1 — claim: [FY2025 revenue]; filing evidence/location: [10-K 0001065280-26-000034, p.39, Consolidated Statements of Operations, Revenues, year ended December 31, 2025]; mark: [Correct]; reviewer/date: [Joseph/October 29th].  
+Partner check 2 — claim: [Q3 2026 GAAP diluted EPS, 0.87 USD/share]; filing evidence/location: [Exhibit 99.1 to 8-K 0001065280-26-000290, Consolidated Statements of Operations, Diluted, three months ended September 30, 2026]; mark: [Correct]; reviewer/date: [Joseph/October 29th].
 
 # Netflix Equity Research Report
 
