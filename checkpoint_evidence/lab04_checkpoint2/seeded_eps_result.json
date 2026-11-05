@@ -1,0 +1,65 @@
+{
+  "test": "Lab 04 Checkpoint 2 seeded diluted EPS",
+  "passed": true,
+  "claim_id": "N00157",
+  "original_eps": "20.76",
+  "seeded_eps": "21.76",
+  "difference_USD_per_share": "1.00",
+  "actual_verification_mark": {
+    "id": "N00157",
+    "number": "21.76",
+    "mark": "wrong",
+    "reason": "Value differs from the exact saved XBRL fact. The report claims diluted EPS of 21.76\u202fUSD/shares for the fiscal year ended\u202f30\u202fAug\u202f2026, but the filing shows 20.76\u202fUSD/shares.",
+    "correction": "20.76",
+    "source": {
+      "unit": "USD/shares",
+      "document": "10-K",
+      "quote": "Diluted | $ | 20.76 | | | $ | 18.21 | | | $ | 16.56 |",
+      "definition": "Diluted net income per common share, USD per share, annual period September 1, 2025 through August 30, 2026.",
+      "line": 615,
+      "kind": "line",
+      "entity": "subject",
+      "tag": "us-gaap:EarningsPerShareDiluted",
+      "period_start": "2025-09-01",
+      "period_end": "2026-08-30",
+      "filing": "0000909832-26-000093"
+    },
+    "code_status": "wrong",
+    "semantic_status": "wrong"
+  },
+  "semantic_completed": true,
+  "full_report_status": "needs_review",
+  "full_report_marks": {
+    "correct": 226,
+    "unsupported": 57,
+    "wrong": 4
+  },
+  "full_report_unresolved": 59,
+  "test_input_folder": "research_data/seeded_tests/COSTCO_WHOLESALE_CORP_NEW_2026-11-05_15-13-13_245380-0500_689601a01c",
+  "test_output_folder": "research_data/COSTCO_WHOLESALE_CORP_NEW_2026-11-05_15-22-57_751872-0500_a657a04477",
+  "original_eps_source": {
+    "saved_text": "research_data/COSTCO_WHOLESALE_CORP_NEW_2026-11-05_15-22-57_751872-0500_a657a04477/10-K.txt",
+    "line": 615,
+    "original_line": "Diluted | $ | 20.76 | | | $ | 18.21 | | | $ | 16.56 |",
+    "filing_sha256": "f43cfb71de35b967ba440e4ae03927bc50ad24f8089d986782ae194598a97815",
+    "fact_file": "research_data/COSTCO_WHOLESALE_CORP_NEW_2026-11-05_15-22-57_751872-0500_a657a04477/facts.json",
+    "facts_sha256": "d95d4125e1f99bad26bc1a105b432cde7d5e73861a2b562f9700015476acae1f",
+    "fact": {
+      "start": "2025-09-01",
+      "end": "2026-08-30",
+      "val": 20.76,
+      "accn": "0000909832-26-000093",
+      "fy": 2026,
+      "fp": "FY",
+      "form": "10-K",
+      "filed": "2026-10-07",
+      "frame": "CY2026",
+      "tag": "us-gaap:EarningsPerShareDiluted",
+      "unit": "USD/shares",
+      "filing_url": "https://www.sec.gov/Archives/edgar/data/909832/000090983226000093/0000909832-26-000093-index.html"
+    },
+    "primary_url": "https://www.sec.gov/Archives/edgar/data/909832/000090983226000093/cost-20260830.htm",
+    "index_url": "https://www.sec.gov/Archives/edgar/data/909832/000090983226000093/0000909832-26-000093-index.html"
+  },
+  "correction_note": "Purdue marked the EPS wrong and supplied the real source, but its proposed numeric value was malformed. Python used the exact saved fact only after matching the same tag and period and independently validating the real per-share filing line. The wrong mark was retained."
+}

@@ -4,6 +4,17 @@
 *.key
 *.pem
 secrets.json
+.aws/
+.ssh/
+.credentials/
+.netrc
+.pypirc
+credentials.json
+credentials.yaml
+credentials.yml
+tokens.json
+*.p12
+*.pfx
 __pycache__/
 .venv/
 .DS_Store

@@ -215,6 +215,11 @@ class RoleTests(unittest.TestCase):
         research_packets = [p for r, p in calls.requests if r == RESEARCH]
         self.assertEqual(research_packets[-1]['expected_output']['parts'], [PARTS[1]])
         self.assertIn('Revise only these failing parts once.', research_packets[-1]['task'])
+        repair = research_packets[-1]['expected_output']
+        self.assertTrue(repair['previous_draft_to_repair']['parts'])
+        self.assertTrue(any('literal' in rule for rule in repair['format_rules']))
+        financial = [p for r,p in calls.requests if r == FINANCIAL][-1]
+        self.assertTrue(any('NO digits' in rule for rule in financial['expected_output']['format_rules']))
 
     def test_code_failures_cannot_be_overridden_and_invalid_claims_withheld(self):
         calls = FakeCalls(invalid=True)
@@ -234,91 +239,51 @@ class RoleTests(unittest.TestCase):
             self.assertNotIn('unique-secret-test-key', path.read_text())
 
 
-class Response:
-    def __init__(self, text='', calls=None):
-        self.output_text = text
-        self.status = 'completed'
-        self.output = calls or []
-
-    def model_dump(self, **kwargs):
-        return {'status': self.status, 'output_text': self.output_text,
-                'output': [item.model_dump() for item in self.output]}
-
-
-class ToolCall:
-    type = 'function_call'
-    name = 'calculator'
-    arguments = '{"ratio":"net_margin_pct","entity":"subject","period":"current"}'
-    call_id = 'call_fixture'
-
-    def model_dump(self, **kwargs):
-        return {'type': self.type, 'name': self.name, 'arguments': self.arguments, 'call_id': self.call_id}
-
-
 class SDKTests(unittest.TestCase):
-    def test_responses_schema_stateless_calls_and_function_call_return(self):
+    def test_compatibility_caller_uses_single_purdue_chat_call(self):
         requests = []
-        responses = iter([Response(calls=[ToolCall()]), Response('{"done":true}'), Response('{"done":true}')])
+        answer = {'thesis':'The supported evidence informs the thesis.','recommendation':'Hold',
+                  'deciding_metric_id':'ratio:subject:operating_margin_pct','rationale':'The supplied margin decides the recommendation.'}
         def create(**kwargs):
             requests.append(deepcopy(kwargs))
-            return next(responses)
+            return SimpleNamespace(id='fixture',choices=[SimpleNamespace(finish_reason='stop',
+                message=SimpleNamespace(content=json.dumps(answer),tool_calls=None,refusal=None))])
         with tempfile.TemporaryDirectory() as folder:
-            client = SimpleNamespace(responses=SimpleNamespace(create=create))
+            client = SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=create)))
             caller = ModelCalls('never-saved', 'fixture-model', Path(folder), client=client)
-            packet = {'task': 'Analyze.', 'context': {'facts': []}, 'expected_output': 'JSON'}
+            packet = {'task':'Analyze.','context':{},'expected_output':'JSON'}
             with contextlib.redirect_stdout(io.StringIO()):
-                caller.call(FINANCIAL, packet, ADVISOR_SCHEMA, calculator=lambda a: {'value': 10})
-                caller.call(ADVISOR, packet, ADVISOR_SCHEMA)
-            self.assertEqual(requests[0]['text']['format']['type'], 'json_schema')
-            self.assertFalse(requests[0]['store'])
-            self.assertEqual(requests[1]['input'][-1]['type'], 'function_call_output')
-            self.assertEqual(requests[1]['input'][-1]['call_id'], 'call_fixture')
-            self.assertEqual(set(json.loads(requests[1]['input'][-1]['output'])),
-                             {'task', 'context', 'expected_output'})
-            self.assertEqual(len(requests[2]['input']), 1)
-            self.assertNotIn('tools', requests[2])
+                self.assertEqual(caller.call(ADVISOR,packet,ADVISOR_SCHEMA),answer)
+            self.assertEqual(len(requests),1)
+            self.assertEqual(requests[0]['response_format']['type'],'json_schema')
+            self.assertFalse(requests[0]['stream'])
+            self.assertNotIn('tools',requests[0])
+            self.assertEqual(json.loads(requests[0]['messages'][1]['content']),packet)
             for path in Path(folder).rglob('*.json'):
-                self.assertNotIn('never-saved', path.read_text())
+                self.assertNotIn('never-saved',path.read_text())
 
     def test_sdk_exception_body_is_not_printed_or_saved(self):
         def create(**kwargs):
             raise Exception('secret-from-error-body')
         with tempfile.TemporaryDirectory() as folder:
-            caller = ModelCalls('key', 'fixture-model', Path(folder),
-                                client=SimpleNamespace(responses=SimpleNamespace(create=create)))
-            with contextlib.redirect_stdout(io.StringIO()):
+            client=SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=create)))
+            caller=ModelCalls('key','fixture-model',Path(folder),client=client)
+            with contextlib.redirect_stdout(io.StringIO()),contextlib.redirect_stderr(io.StringIO()):
                 with self.assertRaises(RuntimeError) as error:
-                    caller.call(RESEARCH, {'task': 'test', 'context': {}, 'expected_output': {}}, ADVISOR_SCHEMA)
-            self.assertNotIn('secret-from-error-body', str(error.exception))
+                    caller.call(RESEARCH,{'task':'test','context':{},'expected_output':{}},ADVISOR_SCHEMA)
+            self.assertNotIn('secret-from-error-body',str(error.exception))
 
 
 class CommandTests(unittest.TestCase):
-    def test_full_command_runs_seven_steps_then_roles(self):
-        order = []
-        desk = SimpleNamespace(_folder=None)
-        for step in range(1, 8):
-            setattr(desk, f'step{step}', lambda step=step: order.append(step))
-        config = {'SEC_USER_AGENT': 'Fixture fixture@example.invalid', 'API_KEY': 'fixture-api-key'}
-        with patch.object(equity_desk.sys, 'argv', ['equity_desk.py', 'TEST', '--peers', 'PEER', '--price', '60']), \
-             patch.object(equity_desk, 'dotenv_values', return_value=config), \
-             patch.object(equity_desk, 'Desk', return_value=desk), \
-             patch('research_roles.run_roles') as roles, contextlib.redirect_stdout(io.StringIO()):
+    def test_existing_entry_point_uses_fixed_flow(self):
+        with patch('desk_flow.main', return_value=0) as flow_main:
             self.assertEqual(equity_desk.main(), 0)
-        self.assertEqual(order, list(range(1, 8)))
-        roles.assert_called_once_with(desk, 'fixture-api-key', 'gpt-5.4')
+        flow_main.assert_called_once_with()
 
-    def test_data_only_needs_no_api_key_and_makes_no_model_calls(self):
-        order = []
-        desk = SimpleNamespace(_folder=None)
-        for step in range(1, 8):
-            setattr(desk, f'step{step}', lambda step=step: order.append(step))
-        with patch.object(equity_desk.sys, 'argv', ['equity_desk.py', 'TEST', '--data-only']), \
-             patch.object(equity_desk, 'dotenv_values', return_value={'SEC_USER_AGENT': 'Fixture fixture@example.invalid'}), \
-             patch.object(equity_desk, 'Desk', return_value=desk), \
-             patch('research_roles.run_roles') as roles, contextlib.redirect_stdout(io.StringIO()):
-            self.assertEqual(equity_desk.main(), 0)
-        self.assertEqual(order, list(range(1, 8)))
-        roles.assert_not_called()
+    def test_legacy_skip_verifier_option_is_rejected(self):
+        from desk_flow import main
+        with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
+            main(['TEST', '--data-only'])
 
 
 if __name__ == '__main__':

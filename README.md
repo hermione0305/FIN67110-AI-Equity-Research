@@ -14,175 +14,264 @@ This repository contains my coursework and AI-assisted equity research projects.
 ## Research
 Equity research, financial statements, earnings analysis, and AI coding agents.
 
-## SEC equity-research data desk
+## Lab 04: fixed CrewAI agent team
 
-Install and run from this folder (Python 3.10 or later):
+Checkpoint 2 evidence is in [checkpoint_evidence/lab04_checkpoint2](checkpoint_evidence/lab04_checkpoint2/README.md).
+The seeded diluted EPS test passed: the Verifier marked $21.76 wrong and corrected
+it to the saved 10-K value of $20.76 per share for the year ended August 30, 2026.
+The full report still needs review: 59 numerical claims remain unresolved.
 
-```bash
-python3 -m pip install -r requirements.txt
-python3 equity_desk.py IBM --peers MSFT ORCL --price 250
-```
-
-The tickers and price above are example inputs. The code contains no company-specific
-rules. Set `SEC_USER_AGENT` in `.env` to your name and real contact email. The program
-reads that file beside the script and sends the value on every HTTP request,
-including redirects and retries. For a full run, it reads `API_KEY` from the same `.env` file and uses the official OpenAI Python SDK. Neither credential is printed or included in model inputs.
-
-The program prints seven steps: ticker resolution; filing history and selection;
-source and text downloads; annual facts; arithmetic; quarterly release lines; and
-peer facts and operating margins. It then runs the four model roles and prints the path to `report.md`. `--peers` accepts space-separated or comma-separated
-tickers. `--price` is a positive USD price per share.
-
-To run one step, use, for example:
+Use Python 3.10–3.13. From this folder:
 
 ```bash
-python3 equity_desk.py IBM --step 5 --price 250
+python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
 ```
 
-A single step fetches its necessary inputs quietly. It does not require an earlier
-run or print other step headings. Model roles do not run with `--step`. Step 7 requires `--peers` to produce peer facts.
-
-Each run saves its data under `research_data/<company>_<date>_<time>/`. This includes
-run parameters, filing lists, selected filing URLs and Accepted timestamps, raw
-company-facts JSON, selected facts and their source filings, calculations, release
-line matches, and peer facts when those steps need them. Step 3 saves the 10-K,
-10-Q, Item 2.02 8-K, and Exhibit 99.1 in both source and plain-text form. Generated
-data and `.env` are excluded from Git. No commits are made.
-
-The full submissions history, including older history files, is searched. The
-latest original 10-K and 10-Q are selected; amendments are not substituted. The
-8-K document itself must contain Item 2.02, and its index must identify Exhibit
-99.1. Accepted times come from each index page and retain its displayed time.
-If a selected filing or exhibit is absent, the program reports it; it does not
-silently use an older release. Other independent steps can still run.
-
-Facts use supported US-GAAP tags and USD units. The tag with the newest annual
-period wins within each concept; the listed candidate order breaks ties. Revenue
-sets the current and prior fiscal-year date ranges. Duration facts must match
-both dates; balance-sheet facts must match the period end. The `fy` field on a
-comparative fact is not used to assign its period. Latest-filed annual comparatives
-are used, so later restatements can change prior-year values. The output is a
-current-data run, not a historical as-of backtest. Unsupported custom tags, absent
-facts, and unmatched periods appear as unavailable, never as zero. Some equity
-and net-income fallback tags include noncontrolling interests; the printed tags
-identify the actual definitions used. Peer fiscal calendars can differ.
-
-The calculator prints these formulas with actual operands:
-
-- Revenue growth: `(current revenue / prior revenue - 1) * 100`.
-- Operating margin: `operating income / revenue * 100`.
-- Return on average equity: `net income / ((current equity + prior equity) / 2) * 100`.
-- Debt/equity: `(noncurrent long-term debt + current maturities) / equity`. If the
-  selected tag is `LongTermDebt`, current maturities are already included and are
-  not added a second time. This measure excludes unrelated short-term borrowings.
-- Free cash flow: `operating cash flow - payments to acquire property, plant and equipment`.
-- P/E: `--price / annual diluted EPS`. This uses fiscal-year EPS, not trailing
-  twelve-month EPS. P/E is unavailable for zero or negative EPS. Return on equity
-  and debt/equity are unavailable for zero or negative equity denominators.
-
-Step 6 uses text rules to locate quarter revenue and diluted-EPS lines. It prints
-verbatim lines and nearby labels/values. Review the context when tables contain
-multiple periods, continuing operations, or GAAP and non-GAAP measures. PDF exhibits
-with text are supported; image-only PDFs require OCR, which is not included.
-
-Run offline checks with `python3 -m unittest -v test_equity_desk.py`.
-
-SEC API reference: https://www.sec.gov/search-filings/edgar-application-programming-interfaces
-
-The requested design reference is Francis & Zhang (2026), Section 3.1,
-https://doi.org/10.1016/j.frl.2026.110127. Full-text access was blocked during this
-implementation. The seven-step requirements supplied in the task define this
-program; equivalence to the paper's full Section 3.1 has not been verified.
-
-
-## Four model roles
-
-A full run now calls the official OpenAI SDK after all seven data steps succeed:
+Run the team with a ticker, peers, and an example USD price:
 
 ```bash
-python3 -m pip install -r requirements.txt
-python3 equity_desk.py COST --peers WMT,TGT,BJ --price 1000
+.venv/bin/python equity_desk.py COST --peers WMT,TGT,BJ --price 1000
 ```
 
-The price is an example USD input. Set `API_KEY` and `SEC_USER_AGENT` in `.env`.
-The default model is `gpt-5.4`; use `--model MODEL_ID` to change it. Each role has
-separate instructions and its own stateless Responses API calls with strict JSON
-output schemas. Tool continuations stay within the Financial Analyst's conversation.
-`store=False` is used on Responses requests. The program does not log the API key.
+The tickers and price are example inputs. No company is hardcoded in the Python
+implementation. Omit `--peers` or `--price` if not available. P/E is unavailable
+without a price. Peers accept commas or spaces. All runs include verification.
+There is no `--data-only`, `--step`, or skip-verification option in this CLI.
 
-The Strategy Manager first allocates tasks and approved source groups. The
-coordinator expands those groups into a JSON packet with `task`, `context`, and
-`expected_output`. There is no shared model history, browsing tool, file-access
-tool, or automatically forwarded whole workspace.
+Set `API_KEY` and `SEC_USER_AGENT` in the existing `.env` beside `equity_desk.py`.
+The key authenticates only to Purdue GenAI Studio via the OpenAI-compatible Python
+SDK. It is not added to graph state, model input, or audit files. SEC requests use `SEC_USER_AGENT`, including
+retries and redirects. Verify-only needs `API_KEY` and does not contact the SEC.
+`purdue_genai.json` selects `gpt-oss:120b`, confirmed available to this account.
+The base URL is `https://genai.rcac.purdue.edu/api`, and the model endpoint is
+`/chat/completions`. The SDK default `/v1` and the Responses endpoint are not used.
+Provider retries are disabled to keep one request per visit. No paid-provider
+fallback is configured or permitted. See `PURDUE_MODELS.md` for all discovered IDs.
 
-- **Research Analyst:** Receives only the annual report's Item 1 Business and
-  Item 7 MD&A and the earnings release, with original plain-text line numbers
-  and accession numbers. It covers the business model, competitive position,
-  catalysts and recent developments. Every claim must quote a supplied source
-  line. The extractor selects the longest Item section to avoid the contents
-  page. If a short Item 7 incorporates an annual report by reference, the desk
-  downloads Exhibit 13 and locates its MD&A. If that section cannot be found,
-  the role workflow stops instead of substituting unrelated text.
-- **Financial Analyst:** Receives the annual facts, ratios, quarter source lines,
-  peer facts/margins, definition records, and supplied price. Numerical literals
-  are prohibited in model-authored claim prose. The report renderer inserts
-  the selected numerical records, including their filing, tag or line, period,
-  units, and Python arithmetic. Source quotes retain their original numbers.
-  The analyst must state the definition used where the sources offer alternatives.
-  It can call an allowlisted calculator for net margin, operating-cash-flow/net-income
-  conversion, and capital-expenditure/revenue, for the current or prior period
-  and the subject or a peer. Python uses registered facts; the model cannot supply
-  numerical operands or executable expressions.
-- **Investment Advisor:** Receives only the two analysts' outputs, including the
-  Financial Analyst's approved numerical records. It supplies a thesis, Buy/Hold/Sell,
-  and exactly one deciding metric ID. Python inserts that metric's actual value
-  and provenance. The advisor cannot introduce numerical thresholds or calculate.
-- **Strategy Manager:** Reviews presence and consistency of all five required
-  parts. It sends failed parts to their owning role once. If an analyst changes,
-  the advisor is refreshed once using the updated analyst outputs. A final review
-  follows revisions. The manager's compiler assembles the report without another
-  unconstrained prose rewrite. Code checks cannot be overridden by a model review.
+The graph is `EquityTeamFlow` in `desk_flow.py`:
 
-The five report parts are Overview; Market Positioning and Growth Outlook;
-Valuation Insights; Future Developments and Strategic Recommendations; and
-Investment Recommendation. Research owns the first, second and fourth parts;
-Financial owns Valuation Insights; the advisor owns Investment Recommendation.
-The fourth part covers strategic developments and research implications; the
-advisor supplies the final investment action.
+```text
+Steps -> Research Analyst -> Financial Analyst -> Investment Advisor
+      -> Strategy Manager -> Verifier
+```
 
-The first report line lists the filings read and their accession numbers,
-including any incorporated annual-report exhibit and the annual/peer fact
-filings. The second line gives the run time. `report.md` is saved in the same
-run folder as the texts and facts, and its path is printed.
+These are CrewAI Flow `@start`/`@listen` edges. There is no model router, hierarchical
+crew, delegation, shared model conversation, or persistent memory. Direct Chat Completions SDK
+calls inside Flow methods keep each analyst/Manager visit to one model call. The
+mandatory Verifier node makes one model call per bounded semantic batch. Each role gets
+only its JSON `task`, `context`, and `expected_output` packet. Its instructions
+come from its own file in `roles/`. `roles/verifier.md` supplies verifier instructions.
+The scaffold created by `crewai create flow desk_team` forwards to this graph.
 
-The run folder also contains `roles/` request/response and calculator audit files,
-`role_sources.json`, the three analyst/advisor JSON outputs, review JSON files,
-and `additional_filings_read.json`. No API key or SEC User-Agent is sent as model
-context. The model calls use the API key only for SDK authentication.
+The Steps node runs seven actual CrewAI `BaseTool` objects in order:
 
-If a quote fails validation, that claim is withheld. If any issue remains after
-the single revision pass, the report is marked DRAFT and lists the unresolved
-issues. Its recommendation is withheld until all checks pass. Exact quotations,
-source IDs, arithmetic and routing are checked in code; interpretation and
-cross-role consistency also depend on the model review. This is not a guarantee
-that every interpretation is correct.
+1. Resolve ticker to CIK from SEC's ticker list.
+2. Read current and archived submissions, select the latest original 10-K and
+   10-Q and latest 8-K whose document contains Item 2.02, and read Accepted times
+   from the EDGAR index pages.
+3. Download those filings and Exhibit 99.1; save sources and plain text.
+4. Select annual facts and prior-year facts, with tags, dates, units and filings.
+5. Calculate revenue growth, operating margin, return on average equity,
+   debt/equity, free cash flow, and annual-EPS P/E in Python.
+6. Locate quarter revenue and diluted-EPS lines and their nearby context.
+7. Fetch peer facts and operating margins using the same calculation.
 
-To retain the original seven-step data workflow without OpenAI calls:
+Step 4 chooses among the four supported US-GAAP USD revenue tags by newest
+annual period end, then by candidate order to break ties. Annual duration facts
+must come from 10-K/10-K/A and span 300–400 days inclusive. Revenue fixes the
+current and prior fiscal-year windows for every concept. Latest-filed matching
+comparatives are used. Missing values are unavailable, never zero. Custom tags
+are not inferred, and peer fiscal calendars can differ.
+
+The Research Analyst receives only Business, MD&A and the earnings release,
+with original text line numbers. A short Item 7 that incorporates an annual
+report causes the desk to fetch Exhibit 13 and identify its MD&A. An unidentifiable
+section is reported as missing instead of substituting unrelated text.
+
+The Financial Analyst receives annual facts, Python ratios, quarter source lines,
+peer facts, accounting definitions, and the user price. All supported extra ratios
+are precomputed by the graph calculator: net margin, cash-flow/net-income
+conversion and capex/revenue, for current/prior periods and subject/peers. The
+model cannot run tools or perform arithmetic. It selects metric IDs and quotes;
+Python supplies the numbers and equations. Selected input tags and definitions
+are included so GAAP/non-GAAP, total/continuing operations, debt including/excluding
+current maturities and equity with/without noncontrolling interests can be checked.
+
+The Investment Advisor receives only the two analyst outputs. It returns a thesis,
+Buy/Hold/Sell, and one deciding metric ID. It cannot introduce a target or cutoff.
+
+The Manager checks exactly these parts:
+
+- Overview
+- Market Positioning and Growth Outlook
+- Valuation Insights
+- Future Developments and Strategic Recommendations
+- Investment Recommendation
+
+Failed parts map to fixed owners in code. Inside the Manager node, one bounded
+repair block visits Research, Financial, then Advisor in that fixed order, calling
+only roles needing repair. Changed analyst output refreshes the Advisor once.
+The Manager can make one final check, then Python compiles the report. No role
+runs more than twice. A model returns checks, never a next-node name. The primary
+graph order is the same on every run. The Manager has one bounded repair pass;
+the mandatory Verifier node schedules its own bounded semantic batches in code.
+Unresolved issues remain marked DRAFT. The Verifier always follows this block,
+including after a failed role or unavailable Manager response.
+
+## Verification and saved runs
+
+Every accepted run gets a new `research_data/<company>_<date>_<time>_<unique-id>/`
+folder. It saves the filing texts, facts, role outputs, each node/tool input and
+output under `nodes/`, `report.md`, `verified_report.md`, and verification marks.
+Existing run directories and original reports are not overwritten.
+
+The report's first line lists filings and accession numbers; its second line is
+the run time. The verified report retains the filings line and puts its marks
+table directly below that line. The original report contains hidden numerical
+source annotations; normal Markdown rendering hides them. They are claims to
+check, not trusted evidence. Visible numbers without annotations are also audited.
+
+The Verifier receives only the compiled report, saved filing texts and saved facts.
+It cannot read analyst outputs, the source registry, Manager reviews, `.env`, or
+fetch replacement data. It skips only the marked Advisor thesis, not the deciding
+number or other report parts. Filing identifiers, source-location metadata and
+run timestamps are provenance, not analytical quantities.
+
+Code first checks exact XBRL value/tag/start/end/unit/accession against saved
+facts. Line checks allow presentation spacing, Unicode normalization and common
+accounting negative formatting. Ratios are recomputed from their quoted inputs
+with a restricted arithmetic grammar, Decimal arithmetic and explicit six-place
+rounding. Each input is checked against saved facts or its filing line. A ratio
+without a definition is unsupported. Saved user price is identified as user input,
+not an SEC fact.
+
+One verifier model call then checks whether the line actually states that number
+for the claimed period, unit and definition, including competing filing definitions.
+A model cannot override a failed code check. Marks are `correct`, `wrong`, or
+`unsupported`. Corrections must pass the same source checks; ratio corrections
+select an allowlisted formula and Python computes them. If saved evidence cannot
+prove a correction, the verified text says unsupported instead of inventing one.
+A model outage leaves claims unapproved and still produces an audit report. Semantic
+interpretation depends on the model; passing checks is not a guarantee of accuracy.
+
+An API rejection is not a parsing success or a completed analyst report. Each
+model visit records its failure stage and redacted API status/code/message.
+Returned provider responses are saved before JSON/schema validation, when a
+response exists. A failed repair preserves earlier analyst content. `run_status.json`
+and the CLI distinguish `passed`, `needs_review`, and `failed`; a report with no
+analyst content or no auditable numbers fails. The earlier OpenAI runs failed
+with exhausted paid-API credits; those previous runs are preserved. This project
+now targets Purdue only and never retries against a paid service.
+
+To verify a saved run, replace the path below with that run's actual folder:
 
 ```bash
-python3 equity_desk.py COST --peers WMT,TGT,BJ --price 1000 --data-only
+.venv/bin/python equity_desk.py --verify-only "/absolute/path/to/research_data/SAVED_RUN_FOLDER"
 ```
 
-Run offline tests without reading `.env` or calling either service:
+This uses a separate one-node `VerificationFlow`. It copies only the report,
+saved filing texts and facts into another unique run folder. It runs no data
+tools or analyst/Manager calls and leaves the source run unchanged.
+
+## Validation
 
 ```bash
-python3 -m unittest -v test_equity_desk.py test_research_roles.py
+.venv/bin/python -m unittest -v test_equity_desk.py test_research_roles.py test_desk_verifier.py test_desk_flow.py test_live_failures.py test_purdue_api.py test_verifier_evidence.py
+.venv/bin/python -m pip check
 ```
 
-The four roles follow the task's description of Francis & Zhang (2026), Figure 1.
-Figure 1 itself was not accessible during implementation; the supplied role and
-report requirements define this implementation.
+Tests use saved synthetic filings and stubbed SDK responses with the real CrewAI
+Flow. They do not need a live SEC request or model call. The source/ratio tests,
+call bounds, fixed order, correction safeguards, mandatory verification and
+verify-only preservation are checked. Live model interpretation has not been
+validated by the offline suite.
 
-Official SDK reference: https://developers.openai.com/api/reference/python
-Structured outputs: https://developers.openai.com/api/docs/guides/structured-outputs
-Function calling: https://developers.openai.com/api/docs/guides/function-calling
+Design reference: Francis & Zhang (2026), https://doi.org/10.1016/j.frl.2026.110127.
+The supplied role/graph requirements define this implementation; full Figure 1
+access was unavailable. CrewAI is pinned to 1.15.34 because its Flow/memory API
+was checked against that installed version.
+
+
+## Purdue API connection check
+
+```bash
+.venv/bin/python check_purdue.py --list-only
+.venv/bin/python check_purdue.py
+```
+
+The first command lists account models without generating text. The second lists
+models and sends one short JSON request; neither starts the research Flow or a
+COST report. Both save a key-free record under `provider_checks/`. A configured
+model missing from the returned account list fails instead of selecting an
+alternate provider.
+
+Purdue uses `response_format.json_schema` for the configured vLLM model. The adapter
+also supports the documented Ollama `format` field via `extra_body` if configuration
+is explicitly changed to an available Ollama model/backend. The output limit is
+`max_tokens=8192`, not Responses' `max_output_tokens`; the short check uses 256.
+Requests use `stream=false` and no remote tools. The final answer is read from
+`choices[0].message.content`, not reasoning fields or `output_text`. Local JSON
+Schema validation still enforces the same role contracts. Empty/null, truncated,
+refused and tool-call responses fail closed without adding a hidden model call.
+
+The first live short request succeeded with `gpt-oss:120b`: HTTP 200, reply
+`{"ok": true}`, finish reason `stop`. Its record is in
+`provider_checks/purdue_short_request_observed.json`. Only short connection tests and
+model discovery were run during migration; the full COST report was not run.
+Full-report context/output limits and model interpretation still require separate
+live validation before a report can be claimed successful.
+
+Official Purdue API documentation: https://docs.rcac.purdue.edu/services/genai/api/
+
+
+## Deployed context limits and report recovery
+
+Purdue's deployed `gpt-oss:120b` limit is 65,536 tokens, including input and output.
+The previously saved HTTP 400 used 120,188 input tokens; changing JSON parsing or
+raising `max_tokens` does not repair an oversized input. All model requests now
+have a local token-budget check including schema tokens, the output allowance,
+and a 2,048-token safety margin. Oversized requests stop before the API call;
+there is no silent input truncation. The first local
+count may download the public tokenizer vocabulary; no key or report is sent
+with that vocabulary download. Cache it before running offline tests.
+
+The Verifier still runs all independent code checks against the FULL saved texts
+and original facts. Its semantic batches cover every eligible number ID exactly
+once, with at most twelve claims per batch and recursive splitting if a batch
+exceeds the context budget. An incomplete multi-claim response is rejected and
+split into smaller batches, down to single claims, without repeating the same
+packet. Failed parent attempts remain saved; only complete leaf responses count
+toward final coverage. Each receives its report claims, original saved
+facts, original line-numbered citation windows and relevant statement,
+period/unit, competing-definition and correction context, and omits an uncited
+quarterly filing from annual-only claims. An uncited quarter claim keeps quarterly
+correction context. Releases and cited documents remain available. Repeated
+report annotation prose and taxonomy text use lossless references. The original
+report and facts are not rewritten; regression tests check exact round trips.
+Every batch input, output, evidence-selection manifest and request budget is
+saved in the new run. If one claim and its evidence still cannot fit, it is
+recorded as a failed batch rather than truncated. Missing, duplicate or failed
+semantic responses prevent completed verification. `code_status` is independent
+of `semantic_status`; `semantic_completed` records whether all batch checks
+finished, not whether every reported claim is correct.
+Verify-only can reuse an earlier completed response only when its full packet
+and instructions match exactly and its schema and claim coverage are valid.
+The copied cache and batch output record that provenance. Code checks always run
+again; changed facts, report claims or instructions prevent reuse.
+
+Quote matching allows whitespace, line wrapping and equivalent hyphen glyphs.
+It preserves numerical tokens, signs, units and other punctuation; a match alone
+cannot establish period or definition. Accounting identifiers such as ASC 450-30
+are excluded, including when report annotations split their digits. Nearby dollar
+amounts and financial negative numbers remain eligible.
+
+Purdue errors can use a `detail` field rather than `error.message`. Both are now
+recorded, redacted, with the HTTP error body. A repair with empty sections or
+no supported replacements cannot erase an earlier supported draft; the Manager still
+checks the retained content and keeps any unresolved failures.
+
+A transport repair does not repair a failed analyst report. Check the saved
+Manager review and actual sections before using verify-only as a recovery step.
+Verify-only audits numbers; it cannot regenerate missing research sections or
+turn failed Manager findings into a complete equity-research report.

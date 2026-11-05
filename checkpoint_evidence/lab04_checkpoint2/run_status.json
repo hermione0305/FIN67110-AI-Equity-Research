@@ -1,0 +1,9 @@
+{
+  "status": "needs_review",
+  "number_count": 287,
+  "semantic_completed": true,
+  "semantic_batch_count": 26,
+  "unresolved_numbers": 59,
+  "semantic_error": null,
+  "model_calls": {}
+}

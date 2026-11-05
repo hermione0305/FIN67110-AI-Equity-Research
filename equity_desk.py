@@ -12,6 +12,7 @@ import re
 import sys
 import time
 from urllib.parse import urljoin, urlparse
+from uuid import uuid4
 
 import requests
 from bs4 import BeautifulSoup
@@ -382,7 +383,7 @@ class Desk:
         if self._folder is None:
             company = self.company()
             name = re.sub(r'[^\w.-]+', '_', company['title']).strip('._') or company['cik']
-            self._folder = ROOT / 'research_data' / f'{name}_{self.stamp}'
+            self._folder = ROOT / 'research_data' / f'{name}_{self.stamp}_{uuid4().hex[:10]}'
             self._folder.mkdir(parents=True, exist_ok=False)
             save_json(self._folder / 'run.json', {'company': company, 'run_time': self.stamp,
                       'ticker': self.args.ticker, 'peers': self.args.peers, 'price_USD': self.args.price,
@@ -503,46 +504,9 @@ STEPS = ['Resolve ticker to CIK', 'List and select filings; read Accepted times'
 
 
 def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('ticker')
-    parser.add_argument('--peers', nargs='+', default=[], help='Space- or comma-separated tickers')
-    parser.add_argument('--price', type=float, help='USD price per share for fiscal-year P/E')
-    parser.add_argument('--step', type=int, choices=range(1, 8), help='Print/run only this step; fetch its prerequisites quietly')
-    parser.add_argument('--data-only', action='store_true', help='Run the seven data steps without model calls')
-    parser.add_argument('--model', default='gpt-5.4', help='OpenAI model for each isolated role (default: gpt-5.4)')
-    args = parser.parse_args()
-    args.peers = list(dict.fromkeys(t.upper() for item in args.peers for t in item.split(',') if t))
-    if args.price is not None and (not math.isfinite(args.price) or args.price <= 0):
-        parser.error('--price must be a finite positive number in USD')
-    config = dotenv_values(ROOT / '.env')
-    use_roles = args.step is None and not args.data_only
-    api_key = (config.get('API_KEY') or '').strip() if use_roles else None
-    if use_roles and (not api_key or api_key == 'paste-here'):
-        parser.error('Set API_KEY in .env for model roles, or use --data-only for SEC data only.')
-    user_agent = (config.get('SEC_USER_AGENT') or '').strip()
-    if not user_agent or 'your-email@' in user_agent.lower() or not re.search(r'\S+@\S+\.\S+', user_agent):
-        parser.error('Set SEC_USER_AGENT in .env to your name and real contact email.')
-    desk = Desk(SecClient(user_agent), args)
-    failures = []
-    for step in ([args.step] if args.step else range(1, 8)):
-        print(f'\nSTEP {step}/7: {STEPS[step-1]}', flush=True)
-        try:
-            getattr(desk, f'step{step}')()
-        except (ValueError, KeyError, RuntimeError, requests.RequestException) as exc:
-            failures.append(step)
-            print(f'Step {step} failed: {exc}', file=sys.stderr)
-    if use_roles and not failures:
-        try:
-            from research_roles import run_roles
-            run_roles(desk, api_key, args.model)
-        except (ValueError, KeyError, RuntimeError, OSError, ImportError) as exc:
-            failures.append('roles')
-            print(f'Research roles failed: {exc}', file=sys.stderr)
-    elif use_roles:
-        print('Research roles skipped because a required data step failed.', file=sys.stderr)
-    if desk._folder:
-        print(f'\nSaved data: {desk._folder}')
-    return 1 if failures else 0
+    # All public runs use the fixed graph; no data-only/skip-verifier switch.
+    from desk_flow import main as flow_main
+    return flow_main()
 
 
 if __name__ == '__main__':

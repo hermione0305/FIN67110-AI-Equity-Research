@@ -3,3 +3,6 @@ beautifulsoup4>=4.12,<5
 python-dotenv>=1,<2
 pypdf>=5,<7
 openai>=2,<4
+crewai==1.15.34
+jsonschema>=4,<5
+tiktoken>=0.12,<1

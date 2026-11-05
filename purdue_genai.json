@@ -1,0 +1,11 @@
+{
+  "provider": "Purdue GenAI Studio",
+  "base_url": "https://genai.rcac.purdue.edu/api",
+  "chat_completions_endpoint": "https://genai.rcac.purdue.edu/api/chat/completions",
+  "models_endpoint": "https://genai.rcac.purdue.edu/api/models",
+  "model": "gpt-oss:120b",
+  "backend": "vllm",
+  "max_tokens": 8192,
+  "timeout_seconds": 240,
+  "fallback_provider": null
+}
